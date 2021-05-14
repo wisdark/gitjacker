@@ -95,6 +95,7 @@ func New(target *url.URL, outputDir string) *retriever {
 	target = target.ResolveReference(relative)
     customTransport := http.DefaultTransport.(*http.Transport).Clone()
     customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+    customTransport.Proxy = http.ProxyFromEnvironment
 
 	return &retriever{
 		baseURL:   target,
@@ -133,7 +134,8 @@ func (r *retriever) parsePackMetadata(meta []byte) error {
 	for _, line := range lines {
 		parts := strings.Split(strings.TrimSpace(line), " ")
 		if parts[0] == "P" && len(parts) == 2 {
-			if err := r.downloadFile(fmt.Sprintf("objects/pack/%s", parts[1])); err != nil {
+			packPath := filepath.Join("objects", "pack", filepath.FromSlash(filepath.Clean("/"+parts[1])))
+			if err := r.downloadFile(packPath); err != nil {
 				logrus.Debugf("Failed to retrieve pack file %s: %s", parts[1], err)
 			}
 		}
@@ -159,7 +161,7 @@ func (r *retriever) downloadFile(path string) error {
 
 	path = strings.TrimSpace(path)
 
-	filePath := filepath.Join(r.outputDir, ".git", path)
+	filePath := filepath.Join(r.outputDir, ".git", filepath.FromSlash(filepath.Clean("/"+path)))
 
 	if r.downloaded[path] {
 		return nil
